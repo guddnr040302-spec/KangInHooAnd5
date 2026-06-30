@@ -1,0 +1,10 @@
+# 추론에 필요한 "추가" 패키지만 적는다 (pip install -r requirements.txt 로 설치됨).
+#
+# ⚠️ 평가 서버에 이미 설치된 기본 패키지는 여기에 적지 말 것.
+#    (버전이 다르면 설치 오류가 나고, 설치 오류는 일일 제출 횟수엔 반영되지 않지만 평가가 안 됨)
+#    기본 설치: torch==2.7.1+cu128, transformers==4.46.3, accelerate==1.9.0,
+#               scikit-learn==1.8.0, pandas==2.0.3, numpy==1.26.4, scipy==1.15.3,
+#               sentencepiece==0.1.99, tqdm, joblib, pyyaml 등
+#
+# 기본에 없는 패키지를 쓸 때만 아래처럼 버전을 고정해서 추가한다. 예)
+# lightgbm==4.5.0
