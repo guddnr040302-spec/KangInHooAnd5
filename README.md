@@ -24,23 +24,33 @@ AI 코딩 에이전트 세션의 특정 시점 상태 데이터를 바탕으로,
 ## 폴더 구조
 ```
 KangInHooAnd5/
-├── README.md            # 이 문서
-├── .gitignore           # 데이터/모델 가중치 등 git 제외 목록
-├── data/                # 로컬 샘플 데이터 (git에는 올리지 않음)
-├── src/                 # 학습·실험 코드
-│   └── train.py         # 학습 코드 (로컬 전용, 제출 zip에는 미포함)
-└── submit/              # ★ 제출 패키징 폴더 (이 안의 내용물을 zip으로 압축)
-    ├── script.py        # 추론 코드 (평가 서버에서 자동 실행)
-    ├── requirements.txt # 추론용 추가 패키지만 명시
-    └── model/           # 학습된 가중치/토크나이저 (오프라인용)
+├── README.md             # 이 문서
+├── CONTRIBUTING.md       # 팀 협업 규칙·역할·제출 체크리스트
+├── .gitignore            # 데이터/모델 가중치 등 git 제외 목록
+├── data/                 # 로컬 샘플 데이터 (git에는 올리지 않음)
+├── notebooks/            # EDA 노트북
+├── experiments/          # 실험 기록 (log_template.md)
+├── docs/                 # 문서 (model_candidates.md 등)
+├── env/                  # 서버 동일 환경 (environment.yml, SETUP.md)
+├── src/                  # 학습·실험 코드 (로컬 전용, 제출 zip 미포함)
+│   ├── baseline_tfidf.py   # 베이스라인1: TF-IDF + LogReg
+│   ├── baseline_encoder.py # 베이스라인2: 소형 인코더 파인튜닝 골격
+│   ├── metrics.py          # Macro-F1 등 평가 지표
+│   └── cv.py               # 교차검증·클래스 가중치
+├── tools/                # 개발 도구 (더미데이터·로컬평가·패키징·환경점검)
+└── submit/               # ★ 제출 패키징 폴더 (이 안의 내용물을 zip으로 압축)
+    ├── script.py           # 추론 코드 (평가 서버에서 자동 실행)
+    ├── featurelib.py       # 피처 추출 (학습·추론 공유)
+    ├── requirements.txt    # 추론용 추가 패키지만 명시
+    └── model/              # 학습된 가중치/토크나이저 (오프라인용)
 ```
 
 > **제출 시 주의:** `submit/` 폴더 자체가 아니라 **그 안의 내용물**(`script.py`, `requirements.txt`, `model/`)이 zip 최상위에 오도록 압축해야 함. 최상위에 불필요한 폴더가 한 겹 더 있으면 구조 불일치로 설치 오류 발생.
 
 ## 개발 흐름
-1. `src/train.py`로 로컬에서 모델 학습 → 가중치를 `submit/model/`에 저장
-2. `submit/script.py`로 로컬에서 추론 테스트 (`data/` 샘플로 `output/submission.csv` 생성 확인)
-3. `submit/` 내용물을 zip으로 압축 → 대회 사이트 [제출] 탭 업로드
+1. `src/baseline_tfidf.py`(또는 `baseline_encoder.py`)로 로컬에서 모델 학습 → 가중치를 `submit/model/`에 저장
+2. `python tools/run_local_eval.py`로 추론 테스트 (`data/` 샘플로 `output/submission.csv` 생성·10분 이내 확인)
+3. `python tools/make_submit.py`로 `submit/` 내용물을 zip으로 묶어 대회 사이트 [제출] 탭 업로드
 
 ## git 기본 사용법 (팀원 공통)
 ```bash
