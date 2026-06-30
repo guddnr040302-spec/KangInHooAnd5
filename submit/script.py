@@ -1,65 +1,70 @@
 """
-추론 스크립트 (제출용).
-평가 서버에서 `python script.py`로 자동 실행된다.
+추론 스크립트 (제출용). 평가 서버에서 `python script.py`로 자동 실행된다.
 
-규칙
-- data/ (읽기전용)에서 평가 데이터 로드
-- model/ 에 동봉한 가중치/토크나이저 로드 (완전 오프라인)
-- output/submission.csv 를 반드시 생성
-- 추론 10분 이내 완료 (T4 16GB / 3 vCPU / 12GB RAM)
+동작
+- data/ 에서 평가 입력 로드
+- model/baseline_tfidf.joblib 가 있으면 그걸로 추론, 없으면 안전 폴백(최빈 클래스)
+- output/submission.csv 생성 (어떤 경우에도 반드시 생성 — 절대 죽지 않게 예외 처리)
 
-※ 실제 데이터 파일명·컬럼·submission 형식은 '샘플 평가 데이터'를 확인한 뒤 아래 TODO를 채워 확정한다.
+규칙: 완전 오프라인, 추론 ≤ 10분, T4 16GB.
+※ 실제 데이터 파일명·컬럼·submission 형식은 샘플 데이터 확인 후 확정한다(아래 TODO).
 """
 import os
+import sys
+import traceback
+
 import pandas as pd
 
-# 평가 서버에서는 script.py / data/ / model/ / output/ 이 같은 위치(형제 디렉터리)에 놓인다.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BASE_DIR)  # featurelib import 가능하게
 DATA_DIR = os.path.join(BASE_DIR, "data")
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
-# 14개 행동 클래스 (TODO: 샘플 데이터 확인 후 실제 클래스명으로 교체)
-LABELS = [
-    # 예: "read_file", "search", "edit_file", "run_shell", "run_test", "ask_user", ...
-]
+import featurelib as fl  # noqa: E402
+
+BUNDLE_PATH = os.path.join(MODEL_DIR, "baseline_tfidf.joblib")
+FALLBACK_LABEL = "ask_user"  # 모델 로드 실패 시 임시 라벨 (TODO: 최빈 클래스로)
 
 
 def load_data():
-    """평가 데이터 로드."""
     # TODO: 실제 평가 데이터 파일명으로 교체
-    path = os.path.join(DATA_DIR, "test.csv")
-    return pd.read_csv(path)
+    return pd.read_csv(os.path.join(DATA_DIR, "test.csv"))
 
 
-def load_model():
-    """model/ 디렉터리에서 로컬 가중치/토크나이저 로드 (오프라인)."""
-    # TODO: 실제 모델 로드 코드로 교체
-    #   예) from transformers import AutoModelForSequenceClassification, AutoTokenizer
-    #       tok = AutoTokenizer.from_pretrained(MODEL_DIR)
-    #       model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
-    return None
+def load_bundle():
+    if not os.path.isfile(BUNDLE_PATH):
+        return None
+    import joblib
+    return joblib.load(BUNDLE_PATH)
 
 
-def predict(model, data):
-    """추론 수행 → 예측 라벨 리스트 반환."""
-    # TODO: 실제 추론 로직으로 교체
-    # 아래는 제출 파이프라인 검증용 임시 더미 (가장 흔한 클래스로 전부 채움)
-    n = len(data)
-    return ["ask_user"] * n
+def predict(bundle, data):
+    if bundle is None:
+        # 안전 폴백: 모델이 없거나 못 읽어도 제출은 만들어진다
+        return [FALLBACK_LABEL] * len(data)
+    X = fl.assemble_features(data, bundle["vectorizer"], bundle["scaler"],
+                             bundle["meta_columns"])
+    return list(bundle["model"].predict(X))
 
 
 def save_results(data, predictions):
-    """output/submission.csv 생성 (필수)."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    # TODO: 실제 submission 형식(id 컬럼 포함 여부 등)으로 교체
-    submission = pd.DataFrame({"prediction": predictions})
-    submission.to_csv(os.path.join(OUTPUT_DIR, "submission.csv"), index=False)
+    # TODO: 실제 submission 형식에 맞춰 컬럼명/ id 포함 여부 확정
+    out = pd.DataFrame({"prediction": predictions})
+    if "id" in data.columns:
+        out.insert(0, "id", data["id"].values)
+    out.to_csv(os.path.join(OUTPUT_DIR, "submission.csv"), index=False)
 
 
 if __name__ == "__main__":
     data = load_data()
-    model = load_model()
-    preds = predict(model, data)
+    try:
+        bundle = load_bundle()
+        preds = predict(bundle, data)
+    except Exception:
+        # 어떤 오류가 나도 빈 제출보다 폴백 제출이 낫다
+        traceback.print_exc()
+        preds = [FALLBACK_LABEL] * len(data)
     save_results(data, preds)
     print(f"추론 완료: {len(preds)}건 -> output/submission.csv")
