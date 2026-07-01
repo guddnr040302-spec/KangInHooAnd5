@@ -32,11 +32,11 @@ MODEL_OUT = os.path.join(ROOT, "submit", "model", "baseline_tfidf.joblib")
 
 
 def load_train():
-    """학습 데이터 로드. (TODO: 실제 학습 파일로 교체)"""
-    df = pd.read_csv(os.path.join(ROOT, "data", "test.csv"))
-    ans = pd.read_csv(os.path.join(ROOT, "data", "_answer.csv"))
-    df = df.merge(ans, on="id")
-    return df, df["label"].values
+    """학습 데이터 로드: train.jsonl(입력) + train_labels.csv(정답)를 id로 연결."""
+    df = fl.load_jsonl(os.path.join(ROOT, "data", "train.jsonl"))
+    labels = pd.read_csv(os.path.join(ROOT, "data", "train_labels.csv"))
+    df = df.merge(labels, on="id")
+    return df, df["action"].values
 
 
 def main():
@@ -79,10 +79,13 @@ def main():
     model.fit(X, y)
 
     # 번들 저장 (추론 시 script.py 가 이 객체들을 그대로 사용)
+    from collections import Counter
+    majority_label = Counter(y).most_common(1)[0][0]
     os.makedirs(os.path.dirname(MODEL_OUT), exist_ok=True)
     joblib.dump(
         {"vectorizer": vectorizer, "scaler": scaler, "model": model,
-         "meta_columns": meta_columns, "labels": fl.LABELS},
+         "meta_columns": meta_columns, "labels": fl.LABELS,
+         "majority_label": majority_label},
         MODEL_OUT,
     )
     print(f"저장 완료: {MODEL_OUT}")

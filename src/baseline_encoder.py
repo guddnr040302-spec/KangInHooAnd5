@@ -29,14 +29,14 @@ LR = 2e-5
 
 
 def load_train():
-    """학습 데이터 -> (texts, labels). TODO: 실제 학습 파일로 교체."""
+    """학습 데이터 -> (texts, labels): train.jsonl + train_labels.csv."""
     import pandas as pd
-    df = pd.read_csv(os.path.join(ROOT, "data", "test.csv"))
-    ans = pd.read_csv(os.path.join(ROOT, "data", "_answer.csv"))
-    df = df.merge(ans, on="id")
+    df = fl.load_jsonl(os.path.join(ROOT, "data", "train.jsonl"))
+    labels = pd.read_csv(os.path.join(ROOT, "data", "train_labels.csv"))
+    df = df.merge(labels, on="id")
     texts = fl.build_text(df).tolist()
-    labels = [fl.LABEL2IDX[l] for l in df["label"]]
-    return texts, labels
+    y = [fl.LABEL2IDX[a] for a in df["action"]]
+    return texts, y
 
 
 def main():

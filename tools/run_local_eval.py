@@ -227,18 +227,26 @@ def main():
         print(f"[OK] submission.csv 생성됨 — {len(sub)}행, 컬럼: {list(sub.columns)}")
         print(sub.head().to_string(index=False))
 
-        test = pd.read_csv(os.path.join(data_dst, "test.csv"))
-        if len(sub) != len(test):
-            print(f"[경고] 행 수 불일치: submission {len(sub)} vs test {len(test)}")
-            ok = False
+        test_path = os.path.join(data_dst, "test.jsonl")
+        if os.path.isfile(test_path):
+            n_test = sum(1 for ln in open(test_path, encoding="utf-8") if ln.strip())
+            if len(sub) != n_test:
+                print(f"[경고] 행 수 불일치: submission {len(sub)} vs test {n_test}")
+                ok = False
 
         if os.path.isfile(args.answer):
             from sklearn.metrics import f1_score
-            ans = pd.read_csv(args.answer)
-            pred_col = "prediction" if "prediction" in sub.columns else sub.columns[-1]
-            n = min(len(ans), len(sub))
-            macro_f1 = f1_score(ans["label"][:n], sub[pred_col][:n],
-                                average="macro", zero_division=0)
+            ans = pd.read_csv(args.answer)  # 컬럼: id, action
+            pred_col = "action" if "action" in sub.columns else sub.columns[-1]
+            if "id" in sub.columns and "id" in ans.columns:
+                sub2 = sub.rename(columns={pred_col: "_pred"})[["id", "_pred"]]
+                merged = ans.merge(sub2, on="id")
+                macro_f1 = f1_score(merged["action"], merged["_pred"],
+                                    average="macro", zero_division=0)
+            else:
+                n = min(len(ans), len(sub))
+                macro_f1 = f1_score(ans["action"][:n], sub[pred_col][:n],
+                                    average="macro", zero_division=0)
             print(f"[참고] 더미 정답 기준 Macro-F1 = {macro_f1:.4f} "
                   f"(더미라 점수 자체는 의미 없음, 채점이 도는지 확인용)")
 
